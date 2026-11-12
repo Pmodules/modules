@@ -12,7 +12,6 @@ set ::g_UsedOverlays [list]
 set ::g_UsedGroups [list]
 set ::g_Overlays [list]
 set ::g_Groups [list]
-set ::g_HideTags [list]
 
 proc overlay-define {name type layout install_root {modulefiles_root {}}\
                         {def_groups {}} } {
@@ -290,10 +289,11 @@ proc runModuleUse {cmd mode pos args} {
       }
       puts stderr {Used release stages:}
       puts stderr {  stable}
-      if {{unstable} ni $::g_HideTags} {
+      set hideList [getConfList hide_tags]
+      if {{unstable} ni $hideList} {
 	 puts stderr {  unstable}
       }
-      if {{deprecated} ni $::g_HideTags} {
+      if {{deprecated} ni $hideList} {
 	 puts stderr {  deprecated}
       }
       _runModuleUse $cmd $mode $pos {*}$args
@@ -367,6 +367,34 @@ proc runModuleUse {cmd mode pos args} {
       _runModuleUse $cmd $mode $pos {*}$optlist {*}$pathlist
    }
    return
+}
+
+# XXX this should be removed once we change all modulerc's to correctly set the tag
+rename cmdModuleTag _cmdModuleTag
+proc cmdModuleTag {unset_extra uasked tag_list args} {
+   # u -> unstable, d -> deprecated (exact matches only)
+   set tag_list [lmap tag $tag_list {
+      switch -- $tag {
+         u { set tag unstable }
+         d { set tag deprecated }
+         default { set tag }
+      }
+   }]
+
+   # forward everything to the original implementation
+   _cmdModuleTag $unset_extra $uasked $tag_list {*}$args
+}
+
+# XXX this should be removed once we change all modulerc's to correctly set the tag
+rename setModspecTag _setModspecTag
+proc setModspecTag {modspec tag {props {}}} {
+   # u -> unstable, d -> deprecated (exact match only)
+   switch -- $tag {
+      d { set tag deprecated }
+      u { set tag unstable }
+   }
+
+   _setModspecTag $modspec $tag $props
 }
 
 rename getModuleHidingLevel _getModuleHidingLevel
@@ -500,3 +528,4 @@ if {[info exists ::env(MODULEPATH)]} {
 # Local Variables:
 # tcl-indent-level: 3
 # End:
+# vim:set tabstop=3 shiftwidth=3 expandtab autoindent:
